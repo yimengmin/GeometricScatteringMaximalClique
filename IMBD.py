@@ -9,16 +9,17 @@ from torch_geometric.data import Data
 import networkx as nx
 from torch.nn import Parameter
 from torch.nn import Sequential as Seq, Linear, ReLU, LeakyReLU
-from torch_geometric.utils import dropout_adj, to_undirected, to_networkx
-from torch_geometric.data import Batch 
-import scipy
-from torch_geometric.utils.convert import from_scipy_sparse_matrix
+import torch.nn.functional as F
+from torch.nn import Linear, Sequential, ReLU, BatchNorm1d as BN
 from torch_geometric.utils.convert import to_scipy_sparse_matrix
+from torch_geometric.data import Batch 
 import pickle
 from torch.utils.data import  DataLoader# use pytorch dataloader
 from random import shuffle
 from torch_geometric.datasets import TUDataset
+#import visdom 
 import numpy as np
+
 import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument('--seed', type=int, default=42, help='Random seed.')
@@ -33,35 +34,39 @@ parser.add_argument('--hidden', type=int, default=8,
                     help='Number of hidden units.')
 parser.add_argument('--batch_size', type=int, default=256,
                     help='batch_size')
-parser.add_argument('--nlayers', type=int, default=4,
+parser.add_argument('--nlayers', type=int, default=2,
                     help='num of layers')
-parser.add_argument('--EPOCHS', type=int, default=20,
+parser.add_argument('--EPOCHS', type=int, default=10,
                     help='epochs to train')
-parser.add_argument('--penalty_coefficient', type=float, default=2.,
+parser.add_argument('--penalty_coefficient', type=float, default=.1,
                     help='penalty_coefficient')
 parser.add_argument('--wdecay', type=float, default=0.0,
                     help='weight decay')
-parser.add_argument('--Numofwalkers', type=int, default=20,
+parser.add_argument('--Numofwalkers', type=int, default=3,
                     help='number of walkers in decoder')
-parser.add_argument('--SampLength', type=int, default=100,
+parser.add_argument('--SampLength', type=int, default=300,
                     help='Sampling Length in decoder')
 args = parser.parse_args()
 torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
 torch.backends.cudnn.enabled = True
 torch.cuda.manual_seed(args.seed)
-dataset_name = "TWITTER_SNAP"
+dataset_name = "IMDB-BINARY"
+dataset = TUDataset(root='/tmp/'+dataset_name, name=dataset_name)
 dataset_scale = 1
-LENGDATA = 973
-total_samples = int(np.floor(LENGDATA*dataset_scale))
+total_samples = int(np.floor(len(dataset)*dataset_scale))
+dataset = dataset[:total_samples]
+#load scattering matrix and feature
 import json
-preposs_time = time.time()
 with open("Preposs/"+dataset_name+"/psdfeature.json") as jfile:
     psdfeature = json.load(jfile)
 psdadj_p = pickle.load(open("Preposs/"+dataset_name+"/psdadj_p.pkl",'rb'))
 psdA_tilte = pickle.load(open("Preposs/"+dataset_name+"/psdA_tilde.pkl",'rb'))
-edge_index_ll = pickle.load(open("Preposs/"+dataset_name+"/edge_index.pkl",'rb'))
+#finish loading 
+print("Loading Preposs data")
+#construct my dataset
 from torch.utils.data import Dataset
+#preposs dataset
 from utils import sparse_mx_to_torch_sparse_tensor,tensorscattering1st,exploss
 sctdataset = []
 for index in range(total_samples):
@@ -70,14 +75,14 @@ for index in range(total_samples):
     adj_sct1 = tensorscattering1st(adjp,1)
     adj_sct2 = tensorscattering1st(adjp,2)
     adj_sct4 = tensorscattering1st(adjp,4)
-    data = Data(x=psdfeature[index],edge_index=to_undirected(torch.transpose(torch.tensor(edge_index_ll[index],dtype=torch.long),0,1)).cuda(),
+    data = Data(x=psdfeature[index],edge_index=dataset[index].edge_index,
             Pmat = psdadj_p[index],Amat = psdA_tilte[index],\
                     adj_sct1=adj_sct1,adj_sct2=adj_sct2,adj_sct4=adj_sct4)
     sctdataset += [data]
 def my_collate(batch):
     data = [item for item in batch]
     return data
-print('Preposs takes : %.6f'%(time.time()-preposs_time))
+print('Creating my own dataset')
 num_trainpoints = int(np.floor(0.6*total_samples))
 num_valpoints = int(np.floor(num_trainpoints/3))
 num_testpoints = total_samples - (num_trainpoints + num_valpoints)
@@ -93,11 +98,8 @@ torch.manual_seed(1)
 np.random.seed(2)
 torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
-from modelswithresrelu import GNN,GCN
-#scattering model
+from modelswithresrelu import GNN
 model = GNN(input_dim=3, hidden_dim=args.hidden, output_dim=1, n_layers=args.nlayers,dropout=args.dropout,Withgres=False,smooth=args.smoo)
-#low pass model
-#model = GCN(input_dim=3, hidden_dim=args.hidden, output_dim=1, dropout=args.dropout)
 model.cuda()
 optimizer = torch.optim.RMSprop(model.parameters(), lr=args.lr,weight_decay=args.wdecay)
 def train(epoch):
@@ -112,10 +114,7 @@ def train(epoch):
             adj_sct1 = batch[j].adj_sct1
             adj_sct2 = batch[j].adj_sct2
             adj_sct4 = batch[j].adj_sct4
-            #scattering model
             output = model(features,A_tilte,P_sct,adj_sct1,adj_sct2,adj_sct4,moment = args.moment)
-            #low pass model
-#            output = model(features,A_tilte)
             retdict = exploss(batch[j].edge_index,output,penalty_coefficient=args.penalty_coefficient)
             batchloss += retdict["loss"][0]
         batchloss = batchloss/len(batch)
@@ -132,7 +131,6 @@ def test(loader):
     clilist = []
     timelist = []
     model.eval()
-#    average_p = [] # calculate average \beta p CompE p
     with torch.no_grad():
         for i, batch in enumerate(loader):
             for j in range(len(batch)): # len(batch[0]) len of the batch
@@ -143,30 +141,19 @@ def test(loader):
                 adj_sct1 = batch[j].adj_sct1
                 adj_sct2 = batch[j].adj_sct2
                 adj_sct4 = batch[j].adj_sct4
-                #scattering model
-                output = model(features,A_tilte,P_sct,adj_sct1,adj_sct2,adj_sct4,moment = args.moment)
-                #low pass model
-#                output = model(features,A_tilte)
-                retdict = exploss(batch[j].edge_index,output,penalty_coefficient=args.penalty_coefficient)
-#                average_p.append(retdict["loss"][1].cpu().detach().numpy())
-#                print('Penalty loss is %.4f'%retdict["loss"][1])
-#                print('Num of nodes: %3d'%A_tilte.size(0))
                 edge_index = batch[j].edge_index
                 adjmatrix = to_scipy_sparse_matrix(edge_index)
                 adjmatrix = sparse_mx_to_torch_sparse_tensor(adjmatrix).cuda() #(N,1)
+                output = model(features,A_tilte,P_sct,adj_sct1,adj_sct2,adj_sct4,moment = args.moment)
                 predC = []
 # my decoder
                 for walkerS in range(0,min(args.Numofwalkers,adjmatrix.size(0))): # with Numofwalkers walkers
                     predC += [getclicnum(adjmatrix,output,walkerstart=walkerS,thresholdloopnodes=args.SampLength).item()]
                 cliques = max(predC)
+                index += 1
                 clilist += [cliques]
                 t_pred = time.time() - t_0 #calculate  time
                 timelist += [t_pred]
-# save prediction
-                torch.save(output, 'PredonNodes/SCT_file%d.pt'%index) # save scattering model's output
-#                torch.save(output, 'PredonNodes/GCN_file%d.pt'%index) # save low pass model's output
-                index += 1
-#        print('Aver penalty: %.4f'%np.mean(np.array(average_p)))
     return clilist,timelist
 import pickle
 with open("Gtruthclique/"+dataset_name+"cliqno.txt","rb") as fp:
@@ -203,5 +190,5 @@ print('nlayers: %.3d'%args.nlayers)
 print('moment: %.3d'%args.moment)
 print('smoo: %.3f'%args.smoo) #no resial layer
 #save
-#np.savetxt('clilist.csv',np.array(clilist), delimiter=',', fmt='%s')
-#np.savetxt('testloadedclique.csv',np.array(testloadedclique), delimiter=',', fmt='%s')
+np.savetxt('clilist.csv',np.array(clilist), delimiter=',', fmt='%s')
+np.savetxt('testloadedclique.csv',np.array(testloadedclique), delimiter=',', fmt='%s')

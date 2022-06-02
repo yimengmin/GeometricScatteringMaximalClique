@@ -43,11 +43,9 @@ parser.add_argument('--Numofwalkers', type=int, default=3,
 parser.add_argument('--SampLength', type=int, default=300,
                     help='Sampling Length in decoder') # before is 300
 args = parser.parse_args()
-np.random.seed(args.seed)
 torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
 torch.backends.cudnn.enabled = True
-torch.manual_seed(args.seed)
 torch.cuda.manual_seed(args.seed)
 dataset_name = "COLLAB"
 dataset = TUDataset(root='datasets/'+dataset_name, name=dataset_name)
