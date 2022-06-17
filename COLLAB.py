@@ -140,11 +140,15 @@ def test(loader):
                 output = model(features,A_tilte,P_sct,adj_sct1,adj_sct2,adj_sct4,moment = args.moment)
                 edge_index = batch[j].edge_index
                 adjmatrix = to_scipy_sparse_matrix(edge_index)
-                adjmatrix = sparse_mx_to_torch_sparse_tensor(adjmatrix).cuda() #(N,1)
+                adjmatrix = sparse_mx_to_torch_sparse_tensor(adjmatrix).cpu() #(N,1)
+                adjmatrix = adjmatrix.cpu()
+                I_n = torch.eye(adjmatrix.size(0)).cpu()
+                Fullm = torch.ones(I_n.size(0),I_n.size(1)).cpu() - I_n #(N,N)
+                ComplementedgeM = (Fullm - adjmatrix)*1.
                 predC = []
 # my decoder
                 for walkerS in range(0,min(args.Numofwalkers,adjmatrix.size(0))): # with Numofwalkers walkers
-                    predC += [getclicnum(adjmatrix,output,walkerstart=walkerS,thresholdloopnodes=args.SampLength).item()]
+                    predC += [getclicnum(ComplementedgeM,output,walkerstart=walkerS,thresholdloopnodes=args.SampLength).item()]
                 cliques = max(predC)
                 index += 1
                 clilist += [cliques]

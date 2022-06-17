@@ -9,7 +9,7 @@ from torch_geometric.data import Data
 import networkx as nx
 from torch.nn import Parameter
 from torch.nn import Sequential as Seq, Linear, ReLU, LeakyReLU
-from torch_geometric.utils import dropout_adj, to_undirected, to_networkx
+from torch_geometric.utils import dropout_adj, to_undirected, to_networkx,to_dense_adj
 from torch_geometric.data import Batch 
 import scipy
 from torch_geometric.utils.convert import from_scipy_sparse_matrix
@@ -96,6 +96,11 @@ torch.backends.cudnn.benchmark = False
 from modelswithresrelu import GNN,GCN
 #scattering model
 model = GNN(input_dim=3, hidden_dim=args.hidden, output_dim=1, n_layers=args.nlayers,dropout=args.dropout,Withgres=False,smooth=args.smoo)
+def count_parameters(model):
+    return sum(p.numel() for p in model.parameters() if p.requires_grad)
+
+print('Total number of parameters:')
+print(count_parameters(model))
 #low pass model
 #model = GCN(input_dim=3, hidden_dim=args.hidden, output_dim=1, dropout=args.dropout)
 model.cuda()
@@ -153,11 +158,15 @@ def test(loader):
 #                print('Num of nodes: %3d'%A_tilte.size(0))
                 edge_index = batch[j].edge_index
                 adjmatrix = to_scipy_sparse_matrix(edge_index)
-                adjmatrix = sparse_mx_to_torch_sparse_tensor(adjmatrix).cuda() #(N,1)
+                adjmatrix = sparse_mx_to_torch_sparse_tensor(adjmatrix).cpu() #(N,1)
+                adjmatrix = adjmatrix.cpu()
+                I_n = torch.eye(adjmatrix.size(0)).cpu()
+                Fullm = torch.ones(I_n.size(0),I_n.size(1)).cpu() - I_n #(N,N)
+                ComplementedgeM = (Fullm - adjmatrix)*1.
                 predC = []
 # my decoder
                 for walkerS in range(0,min(args.Numofwalkers,adjmatrix.size(0))): # with Numofwalkers walkers
-                    predC += [getclicnum(adjmatrix,output,walkerstart=walkerS,thresholdloopnodes=args.SampLength).item()]
+                    predC += [getclicnum(ComplementedgeM,output,walkerstart=walkerS,thresholdloopnodes=args.SampLength).item()]
                 cliques = max(predC)
                 clilist += [cliques]
                 t_pred = time.time() - t_0 #calculate  time
