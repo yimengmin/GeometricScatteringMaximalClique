@@ -95,10 +95,10 @@ torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
 from modelswithresrelu import GNN
 model = GNN(input_dim=3, hidden_dim=args.hidden, output_dim=1, n_layers=args.nlayers,dropout=args.dropout,Withgres=False,smooth=args.smoo)
-model.cuda()
 optimizer = torch.optim.RMSprop(model.parameters(), lr=args.lr,weight_decay=args.wdecay)
 from torch.optim.lr_scheduler import StepLR,CosineAnnealingLR
 def train(epoch):
+    model.cuda()
     model.train()
     print('Epoch:-----%d'%epoch)
     for i, batch in enumerate(train_loader):
@@ -127,28 +127,27 @@ def test(loader):
     clilist = []
     timelist = []
     model.eval()
+    model.cpu()
     with torch.no_grad():
         for i, batch in enumerate(loader):
             for j in range(len(batch)): # len(batch[0]) len of the batch
                 t_0 = time.time()
-                features = torch.FloatTensor(batch[j].x).cuda()
-                P_sct = sparse_mx_to_torch_sparse_tensor(batch[j].Pmat).cuda()
-                A_tilte = sparse_mx_to_torch_sparse_tensor(batch[j].Amat).cuda()
+                features = torch.FloatTensor(batch[j].x).cpu()
+                P_sct = sparse_mx_to_torch_sparse_tensor(batch[j].Pmat).cpu()
+                A_tilte = sparse_mx_to_torch_sparse_tensor(batch[j].Amat).cpu()
                 adj_sct1 = batch[j].adj_sct1
                 adj_sct2 = batch[j].adj_sct2
                 adj_sct4 = batch[j].adj_sct4
+                adj_sct1 = adj_sct1.cpu()
+                adj_sct2 = adj_sct2.cpu()
+                adj_sct4 = adj_sct4.cpu()
                 output = model(features,A_tilte,P_sct,adj_sct1,adj_sct2,adj_sct4,moment = args.moment)
                 edge_index = batch[j].edge_index
                 adjmatrix = to_scipy_sparse_matrix(edge_index)
-                adjmatrix = sparse_mx_to_torch_sparse_tensor(adjmatrix).cpu() #(N,1)
-                adjmatrix = adjmatrix.cpu()
-                I_n = torch.eye(adjmatrix.size(0)).cpu()
-                Fullm = torch.ones(I_n.size(0),I_n.size(1)).cpu() - I_n #(N,N)
-                ComplementedgeM = (Fullm - adjmatrix)*1.
                 predC = []
 # my decoder
-                for walkerS in range(0,min(args.Numofwalkers,adjmatrix.size(0))): # with Numofwalkers walkers
-                    predC += [getclicnum(ComplementedgeM,output,walkerstart=walkerS,thresholdloopnodes=args.SampLength).item()]
+                for walkerS in range(0,min(args.Numofwalkers,adjmatrix.get_shape()[0])): # with Numofwalkers walkers
+                    predC += [getclicnum(adjmatrix,output,walkerstart=walkerS,thresholdloopnodes=args.SampLength).item()]
                 cliques = max(predC)
                 index += 1
                 clilist += [cliques]
