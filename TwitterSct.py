@@ -58,6 +58,8 @@ import json
 preposs_time = time.time()
 with open("Preposs/"+dataset_name+"/psdfeature.json") as jfile:
     psdfeature = json.load(jfile)
+#psdadj_p = pickle.load(open("Preposs/"+dataset_name+"/psdadj_p.pkl",'rb'))
+#psdA_tilte = pickle.load(open("Preposs/"+dataset_name+"/psdA_tilde.pkl",'rb'))
 edge_index_ll = pickle.load(open("Preposs/"+dataset_name+"/edge_index.pkl",'rb'))
 from torch.utils.data import Dataset
 from utils import sparse_mx_to_torch_sparse_tensor,exploss
@@ -94,6 +96,8 @@ def count_parameters(model):
 
 print('Total number of parameters:')
 print(count_parameters(model))
+#low pass model
+#model = GCN(input_dim=3, hidden_dim=args.hidden, output_dim=1, dropout=args.dropout)
 optimizer = torch.optim.RMSprop(model.parameters(), lr=args.lr,weight_decay=args.wdecay)
 def train(epoch):
     model.cuda()
@@ -103,12 +107,19 @@ def train(epoch):
         batchloss = 0.0
         for j in range(len(batch)): # len(batch) len of the batch
             features = torch.FloatTensor(batch[j].x).cuda()
+#            A_tilte = sparse_mx_to_torch_sparse_tensor(batch[j].Amat).cuda()
+#            P_sct = sparse_mx_to_torch_sparse_tensor(batch[j].Pmat).cuda()
+#            adj_sct1 = batch[j].adj_sct1
+#            adj_sct2 = batch[j].adj_sct2
+#            adj_sct4 = batch[j].adj_sct4
             edge_index = batch[j].edge_index
             adjmatrix = to_scipy_sparse_matrix(edge_index)
             adj = sparse_mx_to_torch_sparse_tensor(adjmatrix)
             adj = adj.cuda()
             #scattering model
             output = model(features,adj,moment = args.moment)
+            #low pass model
+#            output = model(features,A_tilte)
             retdict = exploss(edge_index.cuda(),output,penalty_coefficient=args.penalty_coefficient)
             batchloss += retdict["loss"][0]
         batchloss = batchloss/len(batch)
@@ -132,11 +143,22 @@ def test(loader):
             for j in range(len(batch)): # len(batch[0]) len of the batch
                 t_0 = time.time()
                 features = torch.FloatTensor(batch[j].x).cpu()
+#                P_sct = sparse_mx_to_torch_sparse_tensor(batch[j].Pmat).cpu()
+#                A_tilte = sparse_mx_to_torch_sparse_tensor(batch[j].Amat).cpu()
+#                adj_sct1 = batch[j].adj_sct1
+#                adj_sct2 = batch[j].adj_sct2
+#                adj_sct4 = batch[j].adj_sct4
+#                adj_sct1 = adj_sct1.cpu()
+#                adj_sct2 = adj_sct2.cpu()
+#                adj_sct4 = adj_sct4.cpu()
+                edge_index = batch[j].edge_index
                 adjmatrix = to_scipy_sparse_matrix(edge_index)
                 edge_index = edge_index.cpu()
                 adj = sparse_mx_to_torch_sparse_tensor(adjmatrix).cpu()
                 #scattering model
                 output = model(features,adj,moment = args.moment,device = 'cpu')
+                #low pass model
+#                output = model(features,A_tilte)
                 predC = []
 # my decoder
                 for walkerS in range(0,min(args.Numofwalkers,adjmatrix.get_shape()[0])): # with Numofwalkers walkers

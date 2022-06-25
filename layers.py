@@ -8,7 +8,6 @@ import torch
 from torch.nn.parameter import Parameter
 from torch.nn.modules.module import Module
 from utils import sparse_mx_to_torch_sparse_tensor
-from utils import normalize 
 class GC(Module):
     """
     Simple GCN layer, similar to https://arxiv.org/abs/1609.02907

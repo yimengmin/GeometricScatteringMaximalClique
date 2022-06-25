@@ -33,37 +33,40 @@ parser.add_argument('--hidden', type=int, default=8,
                     help='Number of hidden units.')
 parser.add_argument('--batch_size', type=int, default=256,
                     help='batch_size')
-parser.add_argument('--nlayers', type=int, default=4,
+parser.add_argument('--nlayers', type=int, default=3,
                     help='num of layers')
-parser.add_argument('--EPOCHS', type=int, default=20,
+parser.add_argument('--EPOCHS', type=int, default=10,
                     help='epochs to train')
-parser.add_argument('--penalty_coefficient', type=float, default=2.,
+parser.add_argument('--penalty_coefficient', type=float, default=.1,
                     help='penalty_coefficient')
 parser.add_argument('--wdecay', type=float, default=0.0,
                     help='weight decay')
-parser.add_argument('--Numofwalkers', type=int, default=20,
+parser.add_argument('--Numofwalkers', type=int, default=3,
                     help='number of walkers in decoder')
-parser.add_argument('--SampLength', type=int, default=90,
-                    help='Sampling Length in decoder')
+parser.add_argument('--SampLength', type=int, default=300,
+                    help='Sampling Length in decoder') # before is 300
 args = parser.parse_args()
 torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
 torch.backends.cudnn.enabled = True
 torch.cuda.manual_seed(args.seed)
-dataset_name = "TWITTER_SNAP"
+
+dataset_name = "COLLAB"
+dataset = TUDataset(root='datasets/'+dataset_name, name=dataset_name)
 dataset_scale = 1
-LENGDATA = 973
-total_samples = int(np.floor(LENGDATA*dataset_scale))
+total_samples = int(np.floor(len(dataset)*dataset_scale))
+dataset = dataset[:total_samples]
 import json
-preposs_time = time.time()
+
 with open("Preposs/"+dataset_name+"/psdfeature.json") as jfile:
     psdfeature = json.load(jfile)
-edge_index_ll = pickle.load(open("Preposs/"+dataset_name+"/edge_index.pkl",'rb'))
 from torch.utils.data import Dataset
 from utils import sparse_mx_to_torch_sparse_tensor,exploss
 sctdataset = []
+preposs_time = time.time()
 for index in range(total_samples):
-    edge_index=to_undirected(torch.transpose(torch.tensor(edge_index_ll[index],dtype=torch.long),0,1))
+#    edge_index=to_undirected(torch.transpose(torch.tensor(dataset[index].edge_index,dtype=torch.long),0,1))
+    edge_index=dataset[index].edge_index
     data = Data(x=psdfeature[index],edge_index=edge_index)
     sctdataset += [data]
 def my_collate(batch):
@@ -94,6 +97,8 @@ def count_parameters(model):
 
 print('Total number of parameters:')
 print(count_parameters(model))
+#low pass model
+#model = GCN(input_dim=3, hidden_dim=args.hidden, output_dim=1, dropout=args.dropout)
 optimizer = torch.optim.RMSprop(model.parameters(), lr=args.lr,weight_decay=args.wdecay)
 def train(epoch):
     model.cuda()
@@ -103,12 +108,19 @@ def train(epoch):
         batchloss = 0.0
         for j in range(len(batch)): # len(batch) len of the batch
             features = torch.FloatTensor(batch[j].x).cuda()
+#            A_tilte = sparse_mx_to_torch_sparse_tensor(batch[j].Amat).cuda()
+#            P_sct = sparse_mx_to_torch_sparse_tensor(batch[j].Pmat).cuda()
+#            adj_sct1 = batch[j].adj_sct1
+#            adj_sct2 = batch[j].adj_sct2
+#            adj_sct4 = batch[j].adj_sct4
             edge_index = batch[j].edge_index
             adjmatrix = to_scipy_sparse_matrix(edge_index)
             adj = sparse_mx_to_torch_sparse_tensor(adjmatrix)
             adj = adj.cuda()
             #scattering model
             output = model(features,adj,moment = args.moment)
+            #low pass model
+#            output = model(features,A_tilte)
             retdict = exploss(edge_index.cuda(),output,penalty_coefficient=args.penalty_coefficient)
             batchloss += retdict["loss"][0]
         batchloss = batchloss/len(batch)
@@ -132,11 +144,22 @@ def test(loader):
             for j in range(len(batch)): # len(batch[0]) len of the batch
                 t_0 = time.time()
                 features = torch.FloatTensor(batch[j].x).cpu()
+#                P_sct = sparse_mx_to_torch_sparse_tensor(batch[j].Pmat).cpu()
+#                A_tilte = sparse_mx_to_torch_sparse_tensor(batch[j].Amat).cpu()
+#                adj_sct1 = batch[j].adj_sct1
+#                adj_sct2 = batch[j].adj_sct2
+#                adj_sct4 = batch[j].adj_sct4
+#                adj_sct1 = adj_sct1.cpu()
+#                adj_sct2 = adj_sct2.cpu()
+#                adj_sct4 = adj_sct4.cpu()
+                edge_index = batch[j].edge_index
                 adjmatrix = to_scipy_sparse_matrix(edge_index)
                 edge_index = edge_index.cpu()
                 adj = sparse_mx_to_torch_sparse_tensor(adjmatrix).cpu()
                 #scattering model
                 output = model(features,adj,moment = args.moment,device = 'cpu')
+                #low pass model
+#                output = model(features,A_tilte)
                 predC = []
 # my decoder
                 for walkerS in range(0,min(args.Numofwalkers,adjmatrix.get_shape()[0])): # with Numofwalkers walkers
@@ -146,8 +169,7 @@ def test(loader):
                 t_pred = time.time() - t_0 #calculate  time
                 timelist += [t_pred]
 # save prediction
-                torch.save(output, 'PredonNodes/SCT_file%d.pt'%index) # save scattering model's output
-#                torch.save(output, 'PredonNodes/GCN_file%d.pt'%index) # save low pass model's output
+#                torch.save(output, 'PredonNodes/SCT_file%d.pt'%index) # save scattering model's output
                 index += 1
 #        print('Aver penalty: %.4f'%np.mean(np.array(average_p)))
     return clilist,timelist
