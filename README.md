@@ -1,4 +1,4 @@
 # GraphScatteringMaxClique
-python Twitter.py --lr 5e-4 --penalty_coefficient 0.05 --Numofwalkers 10\
+python -u  TwitterSct.py --penalty_coefficient 0.06 --EPOCHS 15 --Numofwalkers 10 --lr 4e-4\
 python IMBD.py --lr 0.002 --Numofwalkers 1 --penalty_coefficient 0.2\
 python COLLAB.py --lr 0.002 --penalty_coefficient 0.1 --Numofwalkers 1
