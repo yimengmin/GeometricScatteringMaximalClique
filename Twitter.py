@@ -85,7 +85,6 @@ torch.manual_seed(1)
 np.random.seed(2)
 torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
-#from modelswithresrelu import GNN,GCN
 from models import GNN,GCN
 #scattering model
 model = GNN(input_dim=3, hidden_dim=args.hidden, output_dim=1, n_layers=args.nlayers,dropout=args.dropout,Withgres=False,smooth=args.smoo)
@@ -132,6 +131,7 @@ def test(loader):
             for j in range(len(batch)): # len(batch[0]) len of the batch
                 t_0 = time.time()
                 features = torch.FloatTensor(batch[j].x).cpu()
+                edge_index = batch[j].edge_index
                 adjmatrix = to_scipy_sparse_matrix(edge_index)
                 edge_index = edge_index.cpu()
                 adj = sparse_mx_to_torch_sparse_tensor(adjmatrix).cpu()
@@ -146,8 +146,7 @@ def test(loader):
                 t_pred = time.time() - t_0 #calculate  time
                 timelist += [t_pred]
 # save prediction
-                torch.save(output, 'PredonNodes/SCT_file%d.pt'%index) # save scattering model's output
-#                torch.save(output, 'PredonNodes/GCN_file%d.pt'%index) # save low pass model's output
+#                torch.save(output, 'PredonNodes/SCT_file%d.pt'%index) # save scattering model's output
                 index += 1
 #        print('Aver penalty: %.4f'%np.mean(np.array(average_p)))
     return clilist,timelist
