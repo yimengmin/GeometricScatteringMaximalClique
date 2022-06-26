@@ -37,7 +37,7 @@ parser.add_argument('--batch_size', type=int, default=256,
                     help='batch_size')
 parser.add_argument('--nlayers', type=int, default=3,
                     help='num of layers')
-parser.add_argument('--EPOCHS', type=int, default=10,
+parser.add_argument('--EPOCHS', type=int, default=5,
                     help='epochs to train')
 parser.add_argument('--penalty_coefficient', type=float, default=.1,
                     help='penalty_coefficient')
