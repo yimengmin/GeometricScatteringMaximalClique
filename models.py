@@ -40,6 +40,11 @@ class SCTConv(torch.nn.Module):
         h_A =  gcn_diffusion_list[0]
         h_A2 =  gcn_diffusion_list[1]
         h_A3 =  gcn_diffusion_list[2]
+
+        h_A = nn.LeakyReLU()(h_A)
+        h_A2 = nn.LeakyReLU()(h_A2)
+        h_A3 = nn.LeakyReLU()(h_A3)
+
         h_sct1,h_sct2,h_sct3 = scattering_diffusion(adj,support0)
         h_sct1 = torch.abs(h_sct1)**moment
         h_sct2 = torch.abs(h_sct2)**moment
