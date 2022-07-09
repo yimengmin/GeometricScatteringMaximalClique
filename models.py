@@ -80,7 +80,7 @@ class SCTConv(torch.nn.Module):
         h_prime = torch.mul(attention, h_all) # element eise product
         h_prime = torch.mean(h_prime,1)
         if self.smoothlayer:
-            h_prime = self.gres(h_prime,adj)
+            h_prime = self.gres(h_prime,adj,device)
         else:
             pass
         X = self.linear1(h_prime)
