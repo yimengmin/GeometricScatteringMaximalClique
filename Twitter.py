@@ -88,6 +88,7 @@ torch.backends.cudnn.benchmark = False
 from models import GNN,GCN
 #scattering model
 model = GNN(input_dim=3, hidden_dim=args.hidden, output_dim=1, n_layers=args.nlayers,dropout=args.dropout,Withgres=False,smooth=args.smoo)
+#model = GCN(input_dim=3, hidden_dim=args.hidden, output_dim=1, dropout=args.dropout)
 def count_parameters(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
@@ -108,6 +109,8 @@ def train(epoch):
             adj = adj.cuda()
             #scattering model
             output = model(features,adj,moment = args.moment)
+            #low pass
+#            output = model(features,adj)
             retdict = exploss(edge_index.cuda(),output,penalty_coefficient=args.penalty_coefficient)
             batchloss += retdict["loss"][0]
         batchloss = batchloss/len(batch)
@@ -137,6 +140,8 @@ def test(loader):
                 adj = sparse_mx_to_torch_sparse_tensor(adjmatrix).cpu()
                 #scattering model
                 output = model(features,adj,moment = args.moment,device = 'cpu')
+                #low pass
+#                output = model(features,adj,device = 'cpu')
                 predC = []
 # my decoder
                 for walkerS in range(0,min(args.Numofwalkers,adjmatrix.get_shape()[0])): # with Numofwalkers walkers

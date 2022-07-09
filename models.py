@@ -126,10 +126,10 @@ class GCN(nn.Module):
         self.dropout = dropout
         self.gc1 = GC(input_dim, hidden_dim)
         self.gc2 = GC(hidden_dim,output_dim)
-    def forward(self,X,A):
-        X = F.leaky_relu(self.gc1(X, A))
+    def forward(self,X,A,device='cuda'):
+        X = F.leaky_relu(self.gc1(X, A,device))
         X = F.dropout(X, self.dropout, training=self.training)
-        X = self.gc2(X, A)
+        X = self.gc2(X, A,device)
         maxval = torch.max(X)
         minval = torch.min(X)
         X = (X-minval)/(maxval+1e-6-minval)
