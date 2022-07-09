@@ -50,12 +50,6 @@ class SCTConv(torch.nn.Module):
         h_sct2 = torch.abs(h_sct2)**moment
         h_sct3 = torch.abs(h_sct3)**moment
 
-#        h_sct1 = torch.nn.functional.relu(torch.spmm(P_sct1, support0))
-#        h_sct1 = torch.abs(torch.spmm(P_sct1, support0))**moment
-#        h_sct2 = torch.nn.functional.relu(torch.spmm(P_sct2, support0))
-#        h_sct2 = torch.abs(torch.spmm(P_sct2, support0))**moment
-#        h_sct3 = torch.nn.functional.relu(torch.spmm(P_sct3, support0))
-#        h_sct3 = torch.abs(torch.spmm(P_sct3, support0))**moment
 
 
         a_input_A = torch.hstack((h, h_A)).unsqueeze(1)
@@ -65,12 +59,6 @@ class SCTConv(torch.nn.Module):
         a_input_sct2 = torch.hstack((h, h_sct2)).unsqueeze(1)
         a_input_sct3 = torch.hstack((h, h_sct3)).unsqueeze(1)
 
-#        a_input_A = torch.cat([h,h_A]).view(N, -1, 2 * self.hid)
-#        a_input_A2 = torch.cat([h,h_A2]).view(N, -1, 2 * self.hid)
-#        a_input_A3 = torch.cat([h,h_A3]).view(N, -1, 2 * self.hid)
-#        a_input_sct1 = torch.cat([h,h_sct1]).view(N, -1, 2 * self.hid)
-#        a_input_sct2 = torch.cat([h,h_sct2]).view(N, -1, 2 * self.hid)
-#        a_input_sct3 = torch.cat([h,h_sct3]).view(N, -1, 2 * self.hid)
         a_input =  torch.cat((a_input_A,a_input_A2,a_input_A3,a_input_sct1,a_input_sct2,a_input_sct3),1).view(N,6,-1)
         #GATV2
         e = torch.matmul(torch.nn.functional.relu(a_input),self.a).squeeze(2)
