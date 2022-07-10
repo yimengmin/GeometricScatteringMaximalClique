@@ -35,6 +35,7 @@ parser.add_argument('--hidden', type=int, default=8,
                     help='Number of hidden units.')
 parser.add_argument('--batch_size', type=int, default=256,
                     help='batch_size')
+parser.add_argument('--use_smoo', action='store_true')
 parser.add_argument('--nlayers', type=int, default=3,
                     help='num of layers')
 parser.add_argument('--EPOCHS', type=int, default=5,
@@ -92,7 +93,7 @@ torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
 from models import GNN,GCN
 #scattering model
-model = GNN(input_dim=3, hidden_dim=args.hidden, output_dim=1, n_layers=args.nlayers,dropout=args.dropout,Withgres=False,smooth=args.smoo)
+model = GNN(input_dim=3, hidden_dim=args.hidden, output_dim=1, n_layers=args.nlayers,dropout=args.dropout,Withgres=args.use_smoo,smooth=args.smoo)
 def count_parameters(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
