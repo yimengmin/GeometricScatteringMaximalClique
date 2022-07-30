@@ -157,7 +157,7 @@ for restart_time in range(args.restart):
 
 #print('The truth is')
 #print(testloadedclique[sample_idx])
-print('Sample id: %d, Takes: %.4f seconds, the ration is: %.3f'%(args.sample_idx,np.sum(t_list),maxclique/testloadedclique[sample_idx]))
+print('Sample id: %d, Takes: %.4f seconds, the ratio is: %.3f'%(args.sample_idx,np.sum(t_list),maxclique/testloadedclique[sample_idx]))
 
 
 with open('accu_restart_%d_selection_%d.txt'%(args.restart,args.max_selections), 'a') as file_object:
