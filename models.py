@@ -64,7 +64,7 @@ class SCTConv(torch.nn.Module):
         e = torch.matmul(torch.nn.functional.relu(a_input),self.a).squeeze(2)
         attention = F.softmax(e, dim=1).view(N, 6, -1)
 #        h_all = torch.cat((h_A.unsqueeze(dim=2),h_A2.unsqueeze(dim=2),h_A3.unsqueeze(dim=2),h_sct1.unsqueeze(dim=2),h_sct2.unsqueeze(dim=2),h_sct3.unsqueeze(dim=2)),dim=2).view(N,6, -1)
-        h_all = torch.cat((h_A.unsqueeze(dim=1), h_A2.unsqueeze(dim=1),h_sct1.unsqueeze(dim=1), h_sct2.unsqueeze(dim=1), h_sct3.unsqueeze(dim=1), h_sct4.unsqueeze(dim=1)),dim=1)
+        h_all = torch.cat((h_A.unsqueeze(dim=1), h_A2.unsqueeze(dim=1),h_A3.unsqueeze(dim=1), h_sct1.unsqueeze(dim=1), h_sct2.unsqueeze(dim=1), h_sct3.unsqueeze(dim=1)),dim=1)
         h_prime = torch.mul(attention, h_all) # element eise product
         h_prime = torch.mean(h_prime,1)
         if self.smoothlayer:
